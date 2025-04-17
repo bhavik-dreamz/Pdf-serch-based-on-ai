@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Chat with AI</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      padding-top: 20px;
+      padding-bottom: 20px;
+    }
+    .chat-container {
+      height: 500px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      position: relative;
+    }
+    .user-message {
+      background-color: #f1f0f0;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+      max-width: 80%;
+      margin-left: auto;
+    }
+    .ai-message {
+      background-color: #d1e7fa;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+      max-width: 80%;
+    }
+    .pdf-list {
+      margin-bottom: 20px;
+    }
+    .pdf-item {
+      cursor: pointer;
+      padding: 8px;
+      margin-bottom: 5px;
+      border-radius: 4px;
+    }
+    .pdf-item:hover {
+      background-color: #f1f1f1;
+    }
+    .pdf-item.active {
+      background-color: #d1e7fa;
+    }
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 2s linear infinite;
+      margin: 20px auto;
+      display: none;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .sources {
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 1px solid #e9ecef;
+    }
+    .source {
+      background-color: rgba(0,0,0,0.03);
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .source-text {
+      margin-top: 4px;
+      font-size: 0.9em;
+      color: #666;
+      border-left: 3px solid #007bff;
+      padding-left: 8px;
+      margin-left: 4px;
+    }
+    /* Add to existing styles */
+    .alert {
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    #uploadForm {
+      position: relative;
+    }
+    
+    .upload-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background-color: #007bff;
+      transition: width 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="text-center mb-4">PDF Chat with AI</h1>
+    
+    <div class="row">
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-header">
+            <h3>Upload PDF</h3>
+          </div>
+          <div class="card-body">
+            <form id="uploadForm" enctype="multipart/form-data">
+              <div class="mb-3">
+                <label for="pdfFile" class="form-label">Select PDF Files</label>
+                <input class="form-control" type="file" id="pdfFile" name="pdf" accept=".pdf" multiple required>
+              </div>
+              <button type="submit" class="btn btn-primary">Upload</button>
+            </form>
+          </div>
+        </div>
+        
+        <div class="card mt-4">
+          <div class="card-header">
+            <h3>Your PDFs</h3>
+          </div>
+          <div class="card-body">
+            <div id="pdfList" class="pdf-list">
+              <div class="text-center">No PDFs uploaded yet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-8">
+        <div class="card">
+          <div class="card-header">
+            <h3 id="chatTitle">Chat</h3>
+          </div>
+          <div class="card-body">
+            <div id="loader" class="loader"></div>
+            <div id="chatContainer" class="chat-container">
+              <div class="ai-message">Hello! I'm ready to help you find information across all uploaded PDFs. What would you like to know?</div>
+            </div>
+            <form id="chatForm">
+              <div class="input-group">
+                <input type="text" id="queryInput" class="form-control" placeholder="Ask a question about the PDF...">
+                <button type="submit" class="btn btn-primary" id="sendBtn">Send</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let selectedPdfId = null;
+
+    // DOM elements
+    const uploadForm = document.getElementById('uploadForm');
+    const pdfList = document.getElementById('pdfList');
+    const chatContainer = document.getElementById('chatContainer');
+    const chatForm = document.getElementById('chatForm');
+    const queryInput = document.getElementById('queryInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const chatTitle = document.getElementById('chatTitle');
+    const loader = document.getElementById('loader');
+
+    // Fetch PDFs on page load
+    document.addEventListener('DOMContentLoaded', fetchPdfs);
+
+    // Handle PDF upload
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const files = document.getElementById('pdfFile').files;
+      
+      if (files.length === 0) {
+        alert('Please select at least one PDF file');
+        return;
+      }
+
+      // Add status message container
+      const statusMessage = document.createElement('div');
+      statusMessage.className = 'alert alert-info';
+      uploadForm.appendChild(statusMessage);
+      
+      const results = {
+        success: [],
+        failed: []
+      };
+
+      try {
+        loader.style.display = 'block';
+        
+        // Upload files one by one
+        for (let i = 0; i < files.length; i++) {
+          const formData = new FormData();
+          formData.append('pdf', files[i]);
+          
+          statusMessage.textContent = `Processing ${i + 1}/${files.length}: ${files[i].name}`;
+          
+          try {
+            const response = await fetch('/api/pdf/upload', {
+              method: 'POST',
+              body: formData
+            });
+            
+            const data = await response.json();
+            if (response.ok) {
+              results.success.push(files[i].name);
+            } else {
+              results.failed.push({
+                name: files[i].name,
+                error: data.message
+              });
+              console.error(`Failed to upload ${files[i].name}:`, data.message);
+            }
+          } catch (error) {
+            results.failed.push({
+              name: files[i].name,
+              error: error.message
+            });
+            console.error(`Error uploading ${files[i].name}:`, error);
+          }
+        }
+        
+        // Show final results
+        const successCount = results.success.length;
+        const failedCount = results.failed.length;
+        
+        let resultMessage = `Uploaded ${successCount} of ${files.length} files.`;
+        if (failedCount > 0) {
+          resultMessage += '\n\nFailed uploads:\n';
+          results.failed.forEach(fail => {
+            resultMessage += `- ${fail.name}: ${fail.error}\n`;
+          });
+        }
+        
+        alert(resultMessage);
+        uploadForm.reset();
+        fetchPdfs();
+      } catch (error) {
+        alert('Error in upload process: ' + error.message);
+        console.error('Upload process error:', error);
+      } finally {
+        loader.style.display = 'none';
+        statusMessage.remove();
+      }
+    });
+
+    // Handle chat form submission
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const query = queryInput.value.trim();
+      
+      if (!query) return;
+      
+      // Add user message to chat
+      addMessageToChat(query, false);
+      queryInput.value = '';
+      
+      try {
+        loader.style.display = 'block';
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            query: query,
+            searchAllPdfs: true 
+          })
+        });
+        
+        const data = await response.json();
+        if (response.ok) {
+          addMessageToChat(data.answer, true, data.sources.map(source => ({
+            ...source,
+            metadata: {
+              ...source.metadata,
+              pdfName: source.metadata.pdfName || 'PDF ' + source.metadata.pdfId
+            }
+          })));
+        } else {
+          addMessageToChat(`Error: ${data.message}`, true);
+        }
+      } catch (error) {
+        addMessageToChat('Sorry, an error occurred processing your request.', true);
+        console.error(error);
+      } finally {
+        loader.style.display = 'none';
+      }
+    });
+
+    // Fetch PDFs
+    async function fetchPdfs() {
+      try {
+        const response = await fetch('/api/pdf');
+        const pdfs = await response.json();
+        
+        if (pdfs.length === 0) {
+          pdfList.innerHTML = '<div class="text-center">No PDFs uploaded yet</div>';
+          return;
+        }
+        
+        pdfList.innerHTML = '';
+        pdfs.forEach(pdf => {
+          const pdfElement = document.createElement('div');
+          pdfElement.className = 'pdf-item';
+          pdfElement.setAttribute('data-id', pdf._id);
+          pdfElement.textContent = pdf.originalname;
+          
+          pdfElement.addEventListener('click', () => selectPdf(pdf._id, pdf.originalname));
+          
+          pdfList.appendChild(pdfElement);
+        });
+      } catch (error) {
+        console.error('Error fetching PDFs:', error);
+        pdfList.innerHTML = '<div class="text-center text-danger">Error loading PDFs</div>';
+      }
+    }
+
+    // Select PDF for chat
+    function selectPdf(id, name) {
+      selectedPdfId = id;
+      
+      // Update UI
+      document.querySelectorAll('.pdf-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      
+      document.querySelector(`[data-id="${id}"]`).classList.add('active');
+      chatTitle.textContent = `Chat (Selected: ${name})`;
+    }
+
+    // Add message to chat
+    function addMessageToChat(message, isAi = false, sources = null) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = isAi ? 'ai-message' : 'user-message';
+      
+      // Add the message
+      messageDiv.innerHTML = `<p>${message}</p>`;
+      
+      // Add sources if available with PDF names
+      if (sources && sources.length > 0) {
+        const sourcesHtml = sources.map(source => `
+          <div class="source">
+            <small>
+              Source: ${source.metadata.pdfName} - Page ${source.metadata.pageNumber} 
+              (Relevance: ${Math.round(source.score * 100)}%)
+            </small>
+            <!--div class="source-text">${source.content}</div-->
+          </div>
+        `).join('');
+        
+        messageDiv.innerHTML += `<div class="sources">${sourcesHtml}</div>`;
+      }
+      
+      chatContainer.appendChild(messageDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // Send message
+    async function sendMessage(query) {
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            query,
+            searchAllPdfs: true 
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get response');
+        }
+
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Error sending message:', error);
+        throw error;
+      }
+    }
+
+  </script>
+</body>
+</html>
