@@ -278,14 +278,9 @@
         });
         
         const data = await response.json();
+        console.log(data);
         if (response.ok) {
-          addMessageToChat(data.answer, true, data.sources.map(source => ({
-            ...source,
-            metadata: {
-              ...source.metadata,
-              pdfName: source.metadata.pdfName || 'PDF ' + source.metadata.pdfId
-            }
-          })));
+          addMessageToChat(data.answer, true, data.references);
         } else {
           addMessageToChat(`Error: ${data.message}`, true);
         }
@@ -339,26 +334,38 @@
     }
 
     // Add message to chat
-    function addMessageToChat(message, isAi = false, sources = null) {
+    function addMessageToChat(message, isAi = false, references = null) {
       const messageDiv = document.createElement('div');
       messageDiv.className = isAi ? 'ai-message' : 'user-message';
       
       // Add the message
       messageDiv.innerHTML = `<p>${message}</p>`;
       
-      // Add sources if available with PDF names
-      if (sources && sources.length > 0) {
-        const sourcesHtml = sources.map(source => `
-          <div class="source">
-            <small>
-              Source: ${source.metadata.pdfName} - Page ${source.metadata.pageNumber} 
-              (Relevance: ${Math.round(source.score * 100)}%)
-            </small>
-            <!--div class="source-text">${source.content}</div-->
+      console.log("front",references);
+      // Add references if available
+      if (references && references.length > 0) {
+        // Render references as a table
+        const referencesHtml = `
+          <div class="sources">
+            <table class="table table-sm table-bordered mb-0">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${references.map(ref => `
+                  <tr>
+                    <td>${ref.field}</td>
+                    <td><code>${ref.value}</code></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
           </div>
-        `).join('');
-        
-        messageDiv.innerHTML += `<div class="sources">${sourcesHtml}</div>`;
+        `;
+        messageDiv.innerHTML += referencesHtml;
       }
       
       chatContainer.appendChild(messageDiv);

@@ -11,7 +11,8 @@ dotenv.config();
 // Import routes
 const pdfRoutes = require('./routes/pdfRoutes');
 const chatRoutes = require('./routes/chatRoutes');
-const { mongoClient, pineconeClient } = require('./clients');
+const  mongoClient = require('./clients/mongo');
+//const { pineconeClient } = require('./clients/pinecone');
 
 // Initialize Express app
 const app = express();
@@ -42,7 +43,7 @@ const initializeServices = async () => {
   try {
     await mongoClient.connect();
     // Test Pinecone connection
-    const pc = pineconeClient(); 
+    //const pc = pineconeClient(); 
    
     console.log('All services initialized successfully');
   } catch (error) {

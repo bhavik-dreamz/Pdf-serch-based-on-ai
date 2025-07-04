@@ -1,3 +1,15 @@
+
+banner-image.jpg|https://moneyquick.wpenginepowered.com/wp-content/uploads/gravity_forms/2-c5dfc9675d3b34042cc79934463764ff/2025/07/banner-image.jpg,
+
+Testimonial-51.png|https://moneyquick.wpenginepowered.com/wp-content/uploads/gravity_forms/
+2-c5dfc9675d3b34042cc79934463764ff/2025/07/Testimonial-51.png,
+
+submission-preview-17.pdf|https://moneyquick.wpenginepowered.com/wp-content/uploads/gravity_forms/2-c5dfc9675d3b34042cc79934463764ff/2025/07/submission-preview-17.pdf,
+
+banner-image1.jpg|https://moneyquick.wpenginepowered.com/wp-content/uploads/gravity_forms/2-c5dfc9675d3b34042cc79934463764ff/2025/07/banner-image1.jpg,
+
+entry.pdf|https://moneyquick.wpenginepowered.com/pdf/683e84ab7a50d/93
+
 # PDF Chat with AI
 
 This application allows users to upload PDFs, which are then stored in MongoDB and indexed in Pinecone as vector embeddings. Users can chat with the PDFs using AI through a simple web interface.
